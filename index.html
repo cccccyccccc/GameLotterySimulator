@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>绯色回响抽卡模拟器</title>
+  <style>
+    /* --- 基础样式 --- */
+    :root {
+      --mr-color: #ff0055;
+      --ur-color: #0AC3FA;
+      --ssr-color: #ffd700;
+      --sr-color: #a300ff;
+      --r-color: #2680DE;
+      --bg-dark: #0a0a1a;
+      --panel-bg: #141433;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: radial-gradient(circle at 50% 10%, #2a2a50 0%, #0a0a1a 60%);
+      color: white;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* 顶部栏 */
+    header {
+      margin-top: calc(50px + env(safe-area-inset-top));
+      margin-bottom: 10px;
+      text-align: center;
+      flex-shrink: 0;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      margin: 0;
+      font-weight: 400;
+      letter-spacing: 2px;
+      font-family: 'STKaiti', serif;
+      text-shadow: 0 0 5px #ffccff, 0 0 10px #ff3366;
+      background: linear-gradient(to bottom, #fff, #ffccff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* 仪表盘 */
+    .dashboard {
+      background-color: var(--panel-bg);
+      width: 92%;
+      margin: 15px auto;
+      border-radius: 12px;
+      padding: 15px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+      flex-shrink: 0;
+    }
+
+    .stat-item { text-align: center; flex: 1; position: relative; }
+    .stat-item:not(:last-child)::after {
+      content: ''; position: absolute; right: 0; top: 20%; height: 60%; width: 1px; background: rgba(255, 255, 255, 0.1);
+    }
+    .stat-num { display: block; font-size: 1.2rem; font-weight: bold; margin-bottom: 4px; }
+    .stat-label { font-size: 0.7rem; color: #8888aa; }
+    .color-blue { color: #00ccff; }
+    .color-gold { color: #ffcc00; }
+    .guarantee-active { color: #ff0055; text-shadow: 0 0 8px #ff0055; animation: pulse 1s infinite alternate; }
+
+    @keyframes pulse {
+      from { opacity: 0.8; } to { opacity: 1; text-shadow: 0 0 15px #ff0055; }
+    }
+
+    /* 内容滚动区 */
+    .content-scroll-area {
+      flex-grow: 1;
+      width: 100%;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-bottom: 120px; /* 稍微多留点空间给底部按钮 */
+    }
+
+    .grid-box {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: 94%; margin-top: 10px; margin-bottom: 10px;
+    }
+
+    .card {
+      position: relative; aspect-ratio: 3/4; border-radius: 6px; overflow: hidden; background-color: #2a2a40; background-size: cover; background-position: center top; background-repeat: no-repeat; border: 1px solid rgba(255, 255, 255, 0.2); opacity: 0; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+    }
+    .card::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; top: 0; background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0) 100%); z-index: 1; }
+    .card-text { position: absolute; z-index: 2; line-height: 1; text-shadow: 0 1px 2px rgba(0, 0, 0, 1); }
+    .card-rank { top: 4px; right: 4px; font-size: 0.9rem; font-weight: 900; font-style: italic; }
+    .card-name { bottom: 4px; left: 3px; right: 15px; font-size: 0.6rem; color: #fff; font-weight: bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+    .card-index { bottom: 4px; right: 3px; font-size: 0.5rem; color: rgba(255, 255, 255, 0.6); }
+
+    .card.MR { border: 1px solid var(--mr-color); } .card.MR .card-rank { color: var(--mr-color); }
+    .card.UR { border: 1px solid var(--ur-color); } .card.UR .card-rank { color: var(--ur-color); }
+    .card.SSR { border: 1px solid var(--ssr-color); } .card.SSR .card-rank { color: var(--ssr-color); }
+    .card.SR { border: 1px solid var(--sr-color); } .card.SR .card-rank { color: var(--sr-color); }
+    .card.R { border: 1px solid #555; } .card.R .card-rank { color: var(--r-color); }
+
+    .log-container {
+      width: 94%; height: 140px; overflow-y: auto; -webkit-overflow-scrolling: touch; background: rgba(0, 0, 0, 0.4); border-radius: 8px; padding: 10px; border-left: 3px solid rgba(255, 255, 255, 0.2); font-size: 0.8rem; color: #e0e0e0; line-height: 1.5; text-align: left; margin-bottom: 20px;
+    }
+    .log-entry { margin-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 2px; }
+    .log-highlight { color: #ffaa00; font-weight: bold; }
+    .log-mr { color: #ff0055; font-weight: bold; }
+
+    /* 底部小字 */
+    .footer-text { text-align: center; margin-top: 25px; color: #ff99cc; opacity: 0.8; font-size: 0.9rem; font-weight: bold; letter-spacing: 1.5px; text-shadow: 0 0 8px rgba(255, 0, 85, 0.4); }
+
+    /* 放在底部小字下面的编辑按钮 */
+    .edit-btn-bottom {
+      display: block;
+      margin: 15px auto; /* 上下间距，左右自动居中 */
+      padding: 8px 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 20px;
+      color: #aaa;
+      font-size: 0.85rem;
+      cursor: pointer;
+      width: fit-content;
+      transition: all 0.2s;
+    }
+    .edit-btn-bottom:active {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(0.95);
+    }
+
+    .controls { width: 100%; padding: 20px 25px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); display: flex; gap: 15px; background: linear-gradient(to top, #0a0a1a 90%, transparent); position: fixed; bottom: 0; z-index: 100; }
+    button { flex: 1; height: 50px; border: none; border-radius: 25px; font-size: 1rem; font-weight: bold; color: white; letter-spacing: 1px; cursor: pointer; transition: transform 0.1s; }
+    button:active { transform: scale(0.96); }
+    .btn-single { background: linear-gradient(90deg, #00c6ff, #0072ff); box-shadow: 0 0 15px rgba(0, 198, 255, 0.4); }
+    .btn-multi { background: linear-gradient(90deg, #ff3366, #ff0055); box-shadow: 0 0 15px rgba(255, 51, 102, 0.4); }
+
+    @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    /* --- 编辑卡池模态框样式 --- */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+      z-index: 999; display: none; justify-content: center; align-items: center;
+    }
+    .modal-content {
+      width: 90%; max-height: 80%; background: #16162e;
+      border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);
+      display: flex; flex-direction: column; padding: 20px;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+    .modal-header h2 { margin: 0; font-size: 1.2rem; color: #fff; }
+    
+    /* 标签页切换 */
+    .pool-tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+    .tab-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,0.3); color: #aaa;
+      padding: 5px 15px; border-radius: 20px; font-size: 0.9rem; height: auto;
+    }
+    .tab-btn.active { background: #ff0055; color: white; border-color: #ff0055; box-shadow: 0 0 10px #ff0055; }
+    .tab-btn.active-ur { background: #ffaa00; border-color: #ffaa00; box-shadow: 0 0 10px #ffaa00; }
+
+    /* 角色选择网格 */
+    .pool-list {
+      flex: 1; overflow-y: auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 5px;
+    }
+    .role-toggle {
+      background: rgba(255,255,255,0.05); padding: 10px 5px; text-align: center;
+      border-radius: 8px; border: 1px solid transparent; cursor: pointer;
+      font-size: 0.8rem; transition: 0.2s; position: relative; overflow: hidden;
+    }
+    .role-toggle.selected {
+      background: rgba(0, 255, 127, 0.15); border-color: #00ff7f; color: #00ff7f;
+      font-weight: bold;
+    }
+    /* 模态框底部 */
+    .modal-actions { margin-top: 15px; display: flex; gap: 10px; }
+    .btn-cancel { background: #444; }
+    .btn-confirm { background: linear-gradient(90deg, #ff0055, #ffaa00); }
+
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>绯色回响抽卡模拟器</h1>
+  </header>
+
+  <div class="dashboard">
+    <div class="stat-item"><span class="stat-num color-blue" id="pity-count">0/60</span><span class="stat-label">当前垫刀</span></div>
+    <div class="stat-item"><span class="stat-num color-gold" id="guarantee-status">MR / UR</span><span class="stat-label">下个保底</span></div>
+    <div class="stat-item"><span class="stat-num color-white" id="total-pulls">0</span><span class="stat-label">总抽数</span></div>
+  </div>
+
+  <div class="content-scroll-area">
+    <div id="grid-area" class="grid-box">
+      <div style="grid-column: 1 / -1; text-align: center; color: rgba(255,255,255,0.2); padding-top: 50px;">点击底部按钮进行共鸣</div>
+    </div>
+    <div class="log-container" id="log-box">
+      <div class="log-entry">> 系统就绪，图片映射已加载...</div>
+    </div>
+    <div class="footer-text">B站关注白泠流年喵！！</div>
+    
+    <!-- 编辑按钮移到了这里 -->
+    <div class="edit-btn-bottom" onclick="openPoolModal()">⚙ 编辑卡池</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-single" onclick="doSinglePull()">单 抽</button>
+    <button class="btn-multi" onclick="doTenPull()">十连抽</button>
+  </div>
+
+  <!-- 编辑卡池的弹窗 -->
+  <div class="modal-overlay" id="poolModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>卡池配置</h2>
+        <span style="font-size:0.8rem; color:#aaa;">SSR及以下不可编辑</span>
+      </div>
+      
+      <div class="pool-tabs">
+        <button class="tab-btn active" id="tab-mr" onclick="switchTab('MR')">MR</button>
+        <button class="tab-btn" id="tab-ur" onclick="switchTab('UR')">UR</button>
+      </div>
+
+      <div class="pool-list" id="pool-list-container">
+        <!-- JS 动态生成 -->
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePoolModal()">取消</button>
+        <button class="btn-confirm" onclick="savePoolConfig()">保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const PROBS = { HIGH_RANK_TOTAL: 0.022, SSR: 0.05, SR: 0.17 };
+    const HIGH_RANK_RATIO = { MR: 0.40, UR: 0.60 };
+    const PITY_LIMIT = 60;
+
+    // === 1. 完整数据库 (All Roles) ===
+    const ALL_ROLE_DATA = {
+      MR: ["刃", "可可佩莉", "白英", "玛莎", "殊", "娜娜", "卡菈"],
+      UR: ["克里斯蒂", "饕餮", "绮罗", "克利昂娜", "科丽塔", "鹿玖", "诺伦", "阿吽", "安娜", "斯芬克斯", "八云", "真仓", "拉斯科芙", "哈托尔", "黛莫妮卡", "伊西丝", "席兹", "卡琳卡", "雪莉", "莉迪娅", "梅尔", "娜塔莉娅", "圣女V.V.", "玲", "莉夏.毛", "艾莉.麦克道尔", "普琳妮", "木什胡什", "维卡", "萨莫维拉", "米拉", "阿琳娜", "夏洛特", "甘格勒丽", "忘忧", "九兵卫", "伊童", "千禄", "云霄", "环"],
+      SSR: ["泽", "淇淇", "蒂娜", "林德尔", "卡米拉", "潘", "夜莺", "巴风特", "萃星", "望月三叶", "琼", "芭丝特", "未央", "赛特", "尤利娅", "芬里尔", "V.V.", "迦楼罗", "瓦吉特", "安诗羽", "贝希摩斯", "塔薇蕾特", "勒菲斯", "蕾吉娜", "箕水", "拉格娜", "玖莳", "白羽", "莫莉", "奥黛丽", "狄丝", "莫德雷德", "诺特", "秋叶", "云貌", "鵺", "伊芙利特", "大圣", "利维坦", "克拉肯", "荷鲁斯", "绯红", "尼德霍格", "齐奈达", "卡萝琳", "莉莉丝", "莱拉普斯", "奈尔", "柳德米拉", "诺克斯", "多萝西", "瓦恩拉", "班希", "艾露斯", "透特", "刻耳柏洛斯", "尼罗", "海拉", "阿努比斯", "维德佛尔尼尔", "佳妮薇儿", "耶梦加得", "格里芬"],
+      SR: ["索娜", "巴巴里安", "奥罗拉", "静", "埃普丽尔", "赫米特", "凌烟", "姑获鸟", "云川", "李瑾", "闪光", "帕尔瓦特", "海伦娜", "潘瑟尔", "雪娜", "雪岚", "古林博斯蒂", "伊利里", "克莱因", "米诺利"],
+      R: ["流光", "妮可", "加莉娜", "安妮娜", "小山道浅", "黯", "彗星", "塞莎", "露西法琳", "凯茵", "雪莱", "彼洛西", "维里安"]
+    };
+
+    // === 2. 当前生效的卡池 (Current Active Pool) ===
+    let activePool = JSON.parse(JSON.stringify(ALL_ROLE_DATA));
+    let tempSelected = { MR: [], UR: [] };
+
+    const IMG_MAP = {
+      // === MR ===
+      "刃": "ren", "可可佩莉": "kekepeili", "白英": "baiying", "玛莎": "masha",
+      "殊": "shu", "娜娜": "nana", "卡菈": "kala",
+
+      // === UR ===
+      "克里斯蒂": "kelisidi", "饕餮": "taotie", "绮罗": "qiluo", "克利昂娜": "keliangna",
+      "科丽塔": "kelita", "鹿玖": "lujiu", "诺伦": "nuolun", "阿吽": "ahong",
+      "安娜": "anna", "斯芬克斯": "sifenkesi", "八云": "bayun", "真仓": "zhengcang",
+      "拉斯科芙": "lasikefu", "哈托尔": "hatuoer", "黛莫妮卡": "daimonika", "伊西丝": "yixisi",
+      "席兹": "xizi", "卡琳卡": "kalinka", "雪莉": "xueli", "莉迪娅": "lidiya",
+      "梅尔": "meier", "娜塔莉娅": "nataliya", "圣女V.V.": "shengnvvv", "玲": "ling",
+      "莉夏.毛": "lixiamao", "艾莉.麦克道尔": "ailimaikedaoer", "普琳妮": "pulinni", "木什胡什": "mushihushi",
+      "维卡": "weika", "萨莫维拉": "samoweila", "米拉": "mila", "阿琳娜": "alinna",
+      "夏洛特": "xialuote", "甘格勒丽": "gangeleli", "忘忧": "wangyou", "九兵卫": "jiubeiwei",
+      "伊童": "yitong", "千禄": "qianlu", "云霄": "yunxiao", "环": "huan",
+
+      // === SSR ===
+      "泽": "ze", "淇淇": "qiqi", "蒂娜": "dina", "林德尔": "lindeer",
+      "卡米拉": "kamila", "潘": "pan", "夜莺": "yeying", "巴风特": "bafengte",
+      "萃星": "cuixing", "望月三叶": "wangyuesanye", "琼": "qiong", "芭丝特": "basite",
+      "未央": "weiyang", "赛特": "saite", "尤利娅": "youliya", "芬里尔": "fenlier",
+      "V.V.": "vv", "迦楼罗": "jialouluo", "瓦吉特": "wajite", "安诗羽": "anshiyu",
+      "贝希摩斯": "beiximosi", "塔薇蕾特": "taweileite", "勒菲斯": "lefeisi", "蕾吉娜": "leijina",
+      "箕水": "jishui", "拉格娜": "lagena", "玖莳": "jiushi", "白羽": "baiyu",
+      "莫莉": "moli", "奥黛丽": "aodaili", "狄丝": "disi", "莫德雷德": "modeleide",
+      "诺特": "nuote", "秋叶": "qiuye", "云貌": "yunmao", "鵺": "ye",
+      "伊芙利特": "yifulite", "大圣": "dasheng", "利维坦": "liweitan", "克拉肯": "kelaken",
+      "荷鲁斯": "helusi", "绯红": "feihong", "尼德霍格": "nidehuoge", "齐奈达": "qinaida",
+      "卡萝琳": "kaluolin", "莉莉丝": "lilisi", "莱拉普斯": "lailapusi", "奈尔": "naier",
+      "柳德米拉": "liudemila", "诺克斯": "nuokesi", "多萝西": "duoluoxi", "瓦恩拉": "waenla",
+      "班希": "banxi", "艾露斯": "ailusi", "透特": "toute", "刻耳柏洛斯": "keerbailuosi",
+      "尼罗": "niluo", "海拉": "haila", "阿努比斯": "anubisi", "维德佛尔尼尔": "weidefuoernier",
+      "佳妮薇儿": "jianiweier", "耶梦加得": "yemengjiade", "格里芬": "gelifen",
+
+      // === SR ===
+      "索娜": "suona", "巴巴里安": "babalian", "奥罗拉": "aoluola", "静": "jing",
+      "埃普丽尔": "aipulier", "赫米特": "hemite", "凌烟": "lingyan", "姑获鸟": "guhuoniao",
+      "云川": "yunchuan", "李瑾": "lijin", "闪光": "shanguang", "帕尔瓦特": "paerwate",
+      "海伦娜": "hailunna", "潘瑟尔": "panseer", "雪娜": "xuena", "雪岚": "xuelan",
+      "古林博斯蒂": "gulinbosidi", "伊利里": "yilili", "克莱因": "kelaiin", "米诺利": "minuoli",
+
+      // === R ===
+      "流光": "liuguang", "妮可": "nike", "加莉娜": "jialina", "安妮娜": "annina",
+      "小山道浅": "xiaoshandaoqian", "黯": "an", "彗星": "huixing", "塞莎": "saisha",
+      "露西法琳": "luxifalin", "凯茵": "kaiyin", "雪莱": "xuelai", "彼洛西": "biluoxi", "维里安": "weilian"
+    };
+
+    let state = { pityCounter: 0, isGuaranteedMR: false, totalPulls: 0 };
+    const elPityCount = document.getElementById('pity-count');
+    const elGuaranteeStatus = document.getElementById('guarantee-status');
+    const elTotalPulls = document.getElementById('total-pulls');
+    const elGrid = document.getElementById('grid-area');
+    const elLogBox = document.getElementById('log-box');
+
+    function getRandomName(rank) {
+      const list = activePool[rank]; 
+      if (!list || list.length === 0) return "卡池为空";
+      return list[Math.floor(Math.random() * list.length)];
+    }
+
+    function updateUI() {
+      elPityCount.innerText = `${state.pityCounter}/60`;
+      elTotalPulls.innerText = state.totalPulls;
+      if (state.isGuaranteedMR) {
+        elGuaranteeStatus.innerText = "必中 MR";
+        elGuaranteeStatus.className = "stat-num guarantee-active";
+      } else {
+        elGuaranteeStatus.innerText = "MR / UR";
+        elGuaranteeStatus.className = "stat-num color-gold";
+      }
+    }
+
+    function addLog(text, type = 'normal') {
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      let htmlContent = `> ${text}`;
+      if (type === 'mr') htmlContent = `> <span class="log-mr">${text}</span>`;
+      if (type === 'ur') htmlContent = `> <span class="log-highlight">${text}</span>`;
+      entry.innerHTML = htmlContent;
+      elLogBox.appendChild(entry);
+      elLogBox.scrollTop = elLogBox.scrollHeight;
+    }
+
+    function pullOneLogic() {
+      state.totalPulls++;
+      state.pityCounter++;
+      const rand = Math.random();
+      let rank = 'R';
+      if (state.pityCounter >= PITY_LIMIT || rand < PROBS.HIGH_RANK_TOTAL) {
+        let isMR = false;
+        if (state.isGuaranteedMR) {
+          isMR = true; state.isGuaranteedMR = false;
+          addLog(`【第${state.totalPulls}抽】大保底：MR！`, 'mr');
+        } else {
+          const subRand = Math.random();
+          if (subRand < HIGH_RANK_RATIO.MR) {
+            isMR = true; state.isGuaranteedMR = false;
+            addLog(`【第${state.totalPulls}抽】欧气爆发：MR！`, 'mr');
+          } else {
+            isMR = false; state.isGuaranteedMR = true;
+            addLog(`【第${state.totalPulls}抽】歪了UR，下次必MR`, 'ur');
+          }
+        }
+        rank = isMR ? 'MR' : 'UR';
+        state.pityCounter = 0;
+      } else {
+        if (rand < PROBS.HIGH_RANK_TOTAL + PROBS.SSR) rank = 'SSR';
+        else if (rand < PROBS.HIGH_RANK_TOTAL + PROBS.SSR + PROBS.SR) rank = 'SR';
+        else rank = 'R';
+      }
+      return { rank, name: getRandomName(rank) };
+    }
+
+    function renderCards(results) {
+      elGrid.innerHTML = '';
+      results.forEach((item, index) => {
+        const card = document.createElement('div');
+        card.className = `card ${item.rank}`;
+        card.style.animationDelay = `${index * 0.05}s`;
+
+        let fileName = IMG_MAP[item.name];
+        if (!fileName) fileName = "default";
+
+        const imagePath = `images/${fileName}.jpg`;
+        card.style.backgroundImage = `url('${imagePath}')`;
+
+        card.innerHTML = `
+            <div class="card-text card-rank">${item.rank}</div>
+            <div class="card-text card-name">${item.name}</div>
+            <div class="card-text card-index">${state.totalPulls - results.length + index + 1}</div>
+        `;
+        elGrid.appendChild(card);
+      });
+    }
+
+    function doSinglePull() { const result = pullOneLogic(); renderCards([result]); updateUI(); }
+    function doTenPull() {
+      let batchResults = [];
+      let maxRarityValue = 0;
+      for (let i = 0; i < 10; i++) {
+        let res = pullOneLogic();
+        batchResults.push(res);
+        let val = getRarityValue(res.rank);
+        if (val > maxRarityValue) maxRarityValue = val;
+      }
+      if (maxRarityValue === 0) {
+        batchResults[9].rank = 'SR';
+        batchResults[9].name = getRandomName('SR');
+        addLog('十连保底：第10发转为 SR');
+      }
+      renderCards(batchResults);
+      updateUI();
+    }
+
+    function getRarityValue(rank) {
+      switch (rank) { case 'MR': return 4; case 'UR': return 3; case 'SSR': return 2; case 'SR': return 1; default: return 0; }
+    }
+    updateUI();
+
+    // ======================================
+    // 编辑卡池相关逻辑
+    // ======================================
+    let currentEditTab = 'MR';
+
+    function openPoolModal() {
+      const modal = document.getElementById('poolModal');
+      modal.style.display = 'flex';
+      tempSelected.MR = [...activePool.MR];
+      tempSelected.UR = [...activePool.UR];
+      switchTab('MR');
+    }
+
+    function closePoolModal() {
+      document.getElementById('poolModal').style.display = 'none';
+    }
+
+    function switchTab(tab) {
+      currentEditTab = tab;
+      document.getElementById('tab-mr').className = tab === 'MR' ? 'tab-btn active' : 'tab-btn';
+      document.getElementById('tab-ur').className = tab === 'UR' ? 'tab-btn active-ur' : 'tab-btn';
+      renderPoolList();
+    }
+
+    function renderPoolList() {
+      const container = document.getElementById('pool-list-container');
+      container.innerHTML = '';
+      const allRoles = ALL_ROLE_DATA[currentEditTab];
+      const selectedRoles = tempSelected[currentEditTab];
+
+      allRoles.forEach(roleName => {
+        const div = document.createElement('div');
+        const isSelected = selectedRoles.includes(roleName);
+        div.className = isSelected ? 'role-toggle selected' : 'role-toggle';
+        div.innerText = roleName;
+        div.onclick = () => toggleRole(roleName, div);
+        container.appendChild(div);
+      });
+    }
+
+    function toggleRole(roleName, divElement) {
+      const list = tempSelected[currentEditTab];
+      const index = list.indexOf(roleName);
+      if (index > -1) {
+        list.splice(index, 1);
+        divElement.className = 'role-toggle';
+      } else {
+        list.push(roleName);
+        divElement.className = 'role-toggle selected';
+      }
+    }
+
+    function savePoolConfig() {
+      if (tempSelected.MR.length === 0) {
+        alert("MR 池至少需要选择 1 名角色！");
+        return;
+      }
+      if (tempSelected.UR.length === 0) {
+        alert("UR 池至少需要选择 1 名角色！");
+        return;
+      }
+      activePool.MR = [...tempSelected.MR];
+      activePool.UR = [...tempSelected.UR];
+      addLog(`卡池已更新: MR(${activePool.MR.length}名), UR(${activePool.UR.length}名)`);
+      closePoolModal();
+    }
+  </script>
+</body>
+
+</html>
